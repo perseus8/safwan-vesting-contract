@@ -1,46 +1,16 @@
-use aiken/hash.{Blake2b_224, Hash}
-use aiken/interval.{Finite}
-use aiken/list
-use aiken/transaction.{ScriptContext, Spend, Transaction, ValidityRange}
-use aiken/transaction/credential.{VerificationKey}
+use aiken/transaction.{ScriptContext, Spend, Transaction}
+use common/types.{VerificationKeyHash} as c_types
+use common/utils.{get_script_hash}
+use vesting/types.{VestingDatum}
+use vesting/validation.{can_spend}
 
-type Datum {
-  /// POSIX time in millisecond, e.g. 1672843961000
-  lock_until: POSIXTime,
-  /// Owner's credentials
-  owner: VerificationKeyHash,
-  /// Beneficiary's credentials
-  beneficiary: VerificationKeyHash,
-}
-
-type VerificationKeyHash =
-  Hash<Blake2b_224, VerificationKey>
-
-type POSIXTime =
-  Int
-
-validator {
-  fn vesting(datum: Datum, _redeemer: Void, ctx: ScriptContext) {
-    when ctx.purpose is {
-      Spend(_) -> or {
-          must_be_signed_by(ctx.transaction, datum.owner),
-          and {
-            must_be_signed_by(ctx.transaction, datum.beneficiary),
-            must_start_after(ctx.transaction.validity_range, datum.lock_until),
-          },
-        }
+validator(admin_pub_key_hash: VerificationKeyHash) {
+  fn vesting(datum: VestingDatum, _redeemer: Void, ctx: ScriptContext) {
+    let ScriptContext(Transaction { inputs, .. } as tx, purpose) = ctx
+    let script_hash = get_script_hash(inputs, purpose)
+    when purpose is {
+      Spend(_) -> can_spend(tx, script_hash, admin_pub_key_hash, datum)
       _ -> False
     }
-  }
-}
-
-fn must_be_signed_by(transaction: Transaction, vk: VerificationKeyHash) {
-  list.has(transaction.extra_signatories, vk)
-}
-
-fn must_start_after(range: ValidityRange, lock_expiration_time: POSIXTime) {
-  when range.lower_bound.bound_type is {
-    Finite(tx_earliest_time) -> lock_expiration_time <= tx_earliest_time
-    _ -> False
   }
 }
