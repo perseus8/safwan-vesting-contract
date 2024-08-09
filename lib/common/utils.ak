@@ -1,14 +1,6 @@
-use aiken/bytearray
-use aiken/cbor.{diagnostic}
-use aiken/hash.{blake2b_256}
 use aiken/list
-use aiken/string
-use aiken/transaction.{
-  Input, Mint, Output, OutputReference, ScriptPurpose, Spend, TransactionId,
-  find_input,
-}
+use aiken/transaction.{Input, Output, ScriptPurpose, Spend, find_input}
 use aiken/transaction/credential.{Address, Credential, ScriptCredential}
-use aiken/transaction/value.{AssetName, PolicyId}
 use common/types.{ScriptHash}
 
 pub fn trace_if_false(predicate: Bool, msg: String) -> Bool {
